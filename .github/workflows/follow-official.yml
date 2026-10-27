@@ -1,0 +1,146 @@
+name: Follow official Magpie and publish Android APK
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: magpie-android-stable
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.plan.outputs.changed }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Unpack reviewed wrapper source archive
+        run: |
+          if [ -f Magpie-Mobile-0.1.3-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.3-github-source.zip .
+          fi
+      - name: Check published stable upstream release
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: python3 ci/follow_official.py probe --repository "$RELEASE_REPOSITORY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: probe-plan
+          path: ci/out/build-plan.json
+          retention-days: 7
+  core:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Unpack reviewed wrapper source archive
+        run: |
+          if [ -f Magpie-Mobile-0.1.3-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.3-github-source.zip .
+          fi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: probe-plan
+          path: ci/out
+      - name: Get exact official source tag and apply Android launcher
+        run: python3 ci/follow_official.py source
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: official-source/go.mod
+          cache-dependency-path: official-source/go.sum
+      - name: Build core and run gateway compatibility contracts
+        run: python3 ci/follow_official.py build-core
+      - name: Prepare native artifact without signing material
+        run: |
+          mkdir -p core-artifact
+          cp android/app/src/main/jniLibs/arm64-v8a/libmagpie.so core-artifact/libmagpie.so
+          cp ci/out/build-plan.json core-artifact/build-plan.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-core
+          path: core-artifact/
+          retention-days: 7
+  package:
+    needs: [check, core]
+    if: needs.check.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Unpack reviewed wrapper source archive
+        run: |
+          if [ -f Magpie-Mobile-0.1.3-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.3-github-source.zip .
+          fi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: probe-plan
+          path: probe-artifact
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: native-core
+          path: core-artifact
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate release plan and pinned packaging dependencies
+        run: |
+          python3 ci/package_plan.py --probe probe-artifact/build-plan.json --core core-artifact/build-plan.json
+          python3 ci/follow_official.py dependencies --plan ci/out/package-plan.json
+          mkdir -p android/app/src/main/jniLibs/arm64-v8a
+          cp core-artifact/libmagpie.so android/app/src/main/jniLibs/arm64-v8a/libmagpie.so
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.1'
+      - name: Validate updater policy and process recovery
+        run: |
+          python3 -m pip install 'PyYAML==6.0.2'
+          java -jar toolchain/ecj.jar -1.8 -proc:none -d test-classes android/app/src/main/java/ai/magpie/mobile/BackendSupervisor.java android/app/src/main/java/ai/magpie/mobile/UpdatePolicy.java android/tests/BackendSupervisorTest.java android/tests/UpdatePolicyTest.java
+          java -cp test-classes ai.magpie.mobile.BackendSupervisorTest
+          java -cp test-classes ai.magpie.mobile.UpdatePolicyTest
+          python3 -m unittest discover -s ci/tests -v
+      - name: Package trusted Android wrapper without executing the upstream core
+        env:
+          ECJ_JAR: ${{ github.workspace }}/toolchain/ecj.jar
+          MAGPIE_BUILD_INFO: ${{ github.workspace }}/ci/out/package-plan.json
+          MAGPIE_UNSIGNED: '1'
+          MAGPIE_APK_OUTPUT: ${{ github.workspace }}/unsigned-mobile.apk
+        run: ANDROID_SDK_ROOT="$ANDROID_HOME" python3 android/build.py
+      - name: Sign APK using the existing personal update certificate
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: python3 ci/sign_release.py --plan ci/out/package-plan.json --unsigned unsigned-mobile.apk --build-tools "$ANDROID_HOME/build-tools/35.0.1"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: signed-android-release
+          path: release/
+          retention-days: 14
+      - name: Publish only after APK signing and verification succeeded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_tag=$(cat release/release-tag.txt)
+          if gh release view "$release_tag" --json isDraft -q .isDraft > existing-draft.txt 2>/dev/null; then
+            test "$(cat existing-draft.txt)" = true
+          else
+            gh release create "$release_tag" --draft --target "$TARGET_COMMIT" --title "Magpie Android $release_tag" --notes-file release/notes.md
+          fi
+          gh release upload "$release_tag" release/*.apk release/android-update.json release/SHA256SUMS --clobber
+          gh release edit "$release_tag" --draft=false --latest --notes-file release/notes.md
