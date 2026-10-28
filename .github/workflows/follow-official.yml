@@ -19,8 +19,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.6-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.6-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.7-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.7-github-source.zip .
           fi
       - name: Check published stable upstream release
         id: plan
@@ -44,8 +44,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.6-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.6-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.7-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.7-github-source.zip .
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -82,8 +82,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.6-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.6-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.7-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.7-github-source.zip .
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -107,9 +107,10 @@ jobs:
       - name: Validate updater policy and process recovery
         run: |
           python3 -m pip install 'PyYAML==6.0.2'
-          java -jar toolchain/ecj.jar -1.8 -proc:none -d test-classes android/app/src/main/java/ai/magpie/mobile/BackendSupervisor.java android/app/src/main/java/ai/magpie/mobile/UpdatePolicy.java android/tests/BackendSupervisorTest.java android/tests/UpdatePolicyTest.java
+          java -jar toolchain/ecj.jar -1.8 -proc:none -d test-classes android/app/src/main/java/ai/magpie/mobile/BackendSupervisor.java android/app/src/main/java/ai/magpie/mobile/UpdatePolicy.java android/tests/BackendSupervisorTest.java android/tests/UpdatePolicyTest.java android/app/src/main/java/ai/magpie/mobile/LanAddresses.java android/tests/LanAddressesTest.java
           java -cp test-classes ai.magpie.mobile.BackendSupervisorTest
           java -cp test-classes ai.magpie.mobile.UpdatePolicyTest
+          java -cp test-classes ai.magpie.mobile.LanAddressesTest
           python3 -m unittest discover -s ci/tests -v
           npm install --prefix /tmp/magpie-dom-test --ignore-scripts --no-audit --no-fund jsdom@26.0.0
           NODE_PATH=/tmp/magpie-dom-test/node_modules node android/tests/web_updates.cjs
