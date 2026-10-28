@@ -2,17 +2,21 @@
 
 个人 Android ARM64 包装器：启动后自动运行本机网关，直接进入原版 Magpie Web 的供应商页。没有外层启动首页。不是官方 Android APK；核心来自 yetone/magpie，遵循其 MIT 许可证。
 
-当前包装器 0.1.3，源码基线核心为 0.1.1762；实际 APK 的核心版本以 Releases 为准。Android 9+、ARM64。沿用 ai.magpie.mobile 包名和已有更新签名，覆盖安装保留应用数据。后台保护与进程异常恢复保留。
+当前包装器 0.1.4，构建核心以每个 Release 中的实际版本为准；Android 9+、ARM64。沿用 ai.magpie.mobile 包名和已有更新签名，覆盖安装保留应用数据。后台保护与进程异常恢复保留。
 
 ## 跟随官方更新
 
-`.github/workflows/follow-official.yml` 每 6 小时检查 yetone/magpie-releases 的最新稳定版，也可在 Actions 手动运行。只有新的官方版本或新的 mobileRevision 才发布。GitHub 定时任务可能延迟，长期没有仓库活动也可能停用，不能保证实时更新。
+`.github/workflows/follow-official.yml` 每 15 分钟检查 yetone/magpie-releases 的最新稳定版，也可在 Actions 手动运行。只有新的官方版本或新的 mobileRevision 才发布。GitHub 定时任务可能延迟，长期没有仓库活动也可能停用，不能保证实时更新。
 
 流程为官方源码编译及真实网关接口验证 → 独立任务打包与签名 → 完整上传后公开 Release。构建任务拿不到签名密钥；构建或校验失败不发布。Android Bun 与 ECJ 使用固定版本和 SHA-256 校验，Actions 固定到提交。
 
-手机在服务运行时每 6 小时检查该仓库的公开 Releases，启动页面时也会检查。发现更新会通知，用户下载后在 Android 系统界面确认覆盖安装。检查入口：长按图标“检查更新”，或“后台保护”页面。无静默安装，不在 APK 中保存 GitHub 令牌。
+手机在服务运行时每 15 分钟检查该仓库的公开 Releases，启动页面时也会检查。发现更新会通知，用户下载后在 Android 系统界面确认覆盖安装。检查入口：长按图标“检查更新”，或“后台保护”页面。无静默安装，不在 APK 中保存 GitHub 令牌。
 
 下载验证文件 SHA-256、大小、包名、升级版本及证书，最终由 Android 安装器验证和安装。正式安装仍需 ARM64 手机验证；本地构建和宿主测试不能替代实机测试。
+
+## 0.1.4 更新入口修复
+
+网页顶部的更新按钮和关于页版本操作统一进入 Android APK 更新页，避免核心试图覆盖 Android 只读安装目录。更新页分别显示官方稳定版和已发布 APK；官方版本领先时明确说明正在等待安卓构建。云端定时任务和手机检查间隔缩短为 15 分钟。GitHub 调度、核心编译和用户确认安装仍需要时间，不保证官方发布后即时可安装。
 
 ## 初次部署
 
