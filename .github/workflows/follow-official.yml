@@ -19,8 +19,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.4-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.4-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.5-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.5-github-source.zip .
           fi
       - name: Check published stable upstream release
         id: plan
@@ -44,8 +44,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.4-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.4-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.5-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.5-github-source.zip .
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -82,8 +82,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.4-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.4-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.5-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.5-github-source.zip .
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -120,6 +120,26 @@ jobs:
           MAGPIE_UNSIGNED: '1'
           MAGPIE_APK_OUTPUT: ${{ github.workspace }}/unsigned-mobile.apk
         run: ANDROID_SDK_ROOT="$ANDROID_HOME" python3 android/build.py
+      - name: Prepare native update UI verification on manual wrapper builds
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'emulator' 'platform-tools' 'system-images;android-35;google_apis;x86_64'
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name magpie-ui --package 'system-images;android-35;google_apis;x86_64' --device pixel_6
+          "$ANDROID_HOME/emulator/emulator" -avd magpie-ui -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > emulator.log 2>&1 &
+      - name: Verify and capture the native update screen
+        if: github.event_name == 'workflow_dispatch'
+        timeout-minutes: 12
+        run: python3 ci/preview_updates.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always() && github.event_name == 'workflow_dispatch'
+        with:
+          name: native-update-ui
+          path: |
+            ui-preview/*.png
+            ui-preview/*.xml
+            emulator.log
+          retention-days: 14
       - name: Sign APK using the existing personal update certificate
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
