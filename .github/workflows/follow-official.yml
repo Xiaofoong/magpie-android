@@ -2,7 +2,7 @@ name: Follow official Magpie and publish Android APK
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '7,22,37,52 * * * *'
 permissions:
   contents: read
 concurrency:
@@ -19,8 +19,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.3-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.3-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.4-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.4-github-source.zip .
           fi
       - name: Check published stable upstream release
         id: plan
@@ -44,8 +44,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.3-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.3-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.4-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.4-github-source.zip .
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -82,8 +82,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.3-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.3-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.4-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.4-github-source.zip .
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -111,6 +111,8 @@ jobs:
           java -cp test-classes ai.magpie.mobile.BackendSupervisorTest
           java -cp test-classes ai.magpie.mobile.UpdatePolicyTest
           python3 -m unittest discover -s ci/tests -v
+          npm install --prefix /tmp/magpie-dom-test --ignore-scripts --no-audit --no-fund jsdom@26.0.0
+          NODE_PATH=/tmp/magpie-dom-test/node_modules node android/tests/web_updates.cjs
       - name: Package trusted Android wrapper without executing the upstream core
         env:
           ECJ_JAR: ${{ github.workspace }}/toolchain/ecj.jar
