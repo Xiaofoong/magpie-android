@@ -140,6 +140,7 @@ jobs:
           path: |
             ui-preview/*.png
             ui-preview/*.xml
+            ui-preview/*.txt
             emulator.log
           retention-days: 14
       - name: Sign APK using the existing personal update certificate
