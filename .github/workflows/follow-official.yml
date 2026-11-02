@@ -13,14 +13,15 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       changed: ${{ steps.plan.outputs.changed }}
+      ui_required: ${{ steps.plan.outputs.ui_required }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.18-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.18-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.36-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.36-github-source.zip .
           fi
       - name: Check published stable upstream release
         id: plan
@@ -44,8 +45,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.18-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.18-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.36-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.36-github-source.zip .
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -82,8 +83,8 @@ jobs:
           persist-credentials: false
       - name: Unpack reviewed wrapper source archive
         run: |
-          if [ -f Magpie-Mobile-0.1.18-github-source.zip ]; then
-            python3 -m zipfile -e Magpie-Mobile-0.1.18-github-source.zip .
+          if [ -f Magpie-Mobile-0.1.36-github-source.zip ]; then
+            python3 -m zipfile -e Magpie-Mobile-0.1.36-github-source.zip .
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -121,20 +122,20 @@ jobs:
           MAGPIE_UNSIGNED: '1'
           MAGPIE_APK_OUTPUT: ${{ github.workspace }}/unsigned-mobile.apk
         run: ANDROID_SDK_ROOT="$ANDROID_HOME" python3 android/build.py
-      - name: Prepare native update UI verification on manual wrapper builds
-        if: github.event_name == 'workflow_dispatch'
+      - name: Prepare native UI verification for wrapper changes and manual builds
+        if: github.event_name == 'workflow_dispatch' || needs.check.outputs.ui_required == 'true'
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'emulator' 'platform-tools' 'system-images;android-35;google_apis;x86_64'
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name magpie-ui --package 'system-images;android-35;google_apis;x86_64' --device pixel_6
       - name: Verify and capture the native update screen
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || needs.check.outputs.ui_required == 'true'
         timeout-minutes: 15
         run: |
           python3 -m pip install 'Pillow==11.3.0'
           python3 ci/preview_updates.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always() && github.event_name == 'workflow_dispatch'
+        if: always() && (github.event_name == 'workflow_dispatch' || needs.check.outputs.ui_required == 'true')
         with:
           name: native-update-ui
           path: |
