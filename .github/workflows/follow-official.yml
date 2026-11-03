@@ -1,8 +1,14 @@
 name: Follow official Magpie and publish Android APK
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/follow-official.yml'
+      - 'Magpie-Mobile-*-github-source.zip'
   schedule:
-    - cron: '7,22,37,52 * * * *'
+    # Best-effort polling: GitHub may delay or drop scheduled events.
+    - cron: '3-58/5 * * * *'
 permissions:
   contents: read
 concurrency:
