@@ -1,6 +1,11 @@
 name: Follow official Magpie and publish Android APK
 on:
   workflow_dispatch:
+    inputs:
+      verify_native_ui:
+        description: Run the native UI preview even when only the core changed
+        type: boolean
+        default: true
   push:
     branches: [main]
     paths:
@@ -129,19 +134,19 @@ jobs:
           MAGPIE_APK_OUTPUT: ${{ github.workspace }}/unsigned-mobile.apk
         run: ANDROID_SDK_ROOT="$ANDROID_HOME" python3 android/build.py
       - name: Prepare native UI verification for wrapper changes and manual builds
-        if: github.event_name == 'workflow_dispatch' || needs.check.outputs.ui_required == 'true'
+        if: needs.check.outputs.ui_required == 'true' || (github.event_name == 'workflow_dispatch' && inputs.verify_native_ui)
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'emulator' 'platform-tools' 'system-images;android-36;google_apis;x86_64'
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name magpie-ui --package 'system-images;android-36;google_apis;x86_64' --device pixel_6
       - name: Verify and capture the native update screen
-        if: github.event_name == 'workflow_dispatch' || needs.check.outputs.ui_required == 'true'
+        if: needs.check.outputs.ui_required == 'true' || (github.event_name == 'workflow_dispatch' && inputs.verify_native_ui)
         timeout-minutes: 15
         run: |
           python3 -m pip install 'Pillow==11.3.0'
           python3 ci/preview_updates.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always() && (github.event_name == 'workflow_dispatch' || needs.check.outputs.ui_required == 'true')
+        if: always() && (needs.check.outputs.ui_required == 'true' || (github.event_name == 'workflow_dispatch' && inputs.verify_native_ui))
         with:
           name: native-update-ui
           path: |
